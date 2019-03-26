@@ -1,0 +1,9 @@
+  datasource:
+     #driver-class-name:  com.mysql.jdbc.Driver 旧的
+    driver-class-name:  com.mysql.cj.jdbc.Driver
+    #指定是否用ssl连接，true值还报错了
+    url: jdbc:mysql://localhost:3306/world?useUnicode=true&characterEncoding=utf8&useSSL=false
+    #serverTimezone: UTC
+    serverTimezone: GMT%2B8 设置时区东8区
+    username: root
+    password: 123456

@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: test-app
+  datasource:
+     #driver-class-name:  com.mysql.jdbc.Driver 旧的
+    driver-class-name:  com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/world?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC
+    username: root
+    password: 123456
+
+#用本地启动客户端
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+#
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: "http://localhost:8080/eureka"
+
+logging:
+  level:
+    root: INFO

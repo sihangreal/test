@@ -1,0 +1,524 @@
+spring MVC 注解详解
+原文地址:https://www.cnblogs.com/xiaoxi/p/5718894.html
+
+
+
+1、@RequestMapping
+@RequestMapping
+RequestMapping是一个用来处理请求地址映射的注解（将请求映射到对应的控制器方法中），可用于类或方法上。用于类上，表示类中的所有响应请求的方法都是以该地址作为父路径。
+RequestMapping请求路径映射，如果标注在某个controller的类级别上，则表明访问此类路径下的方法都要加上其配置的路径；最常用是标注在方法上，表明哪个具体的方法来接受处理某次请求。
+
+复制代码
+复制代码
+@Controller
+@RequestMapping(value="/book")
+public class BookController {
+    @RequestMapping(value="/title")
+    public String getTitle(){
+        return "title";
+    }
+
+    @RequestMapping(value="/content")
+    public String getContent(){
+        return "content";
+    }
+}
+复制代码
+复制代码
+由于BookController类加了value="/book"的@RequestMapping的注解，所以相关路径都要加上"/book"，即请求的url分别为：
+(1)http://localhost:8080/book/title
+(2)http://localhost:8080/book/content
+"@RequestMapping"的value值前后是否有“/”对请求的路径没有影响，即value="book" 、"/book"、"/book/"其效果是一样的。
+
+RequestMapping的属性
+value：指定请求的实际url
+(1)普通的具体值。如前面的value="/book"。
+(2)含某变量的一类值。
+
+@RequestMapping(value="/get/{bookId}")
+public String getBookById(@PathVariable String bookId,Model model){
+    model.addAttribute("bookId", bookId);
+    return "book";
+}
+路径中的bookId可以当变量，@PathVariable注解即提取路径中的变量值。
+(3)ant风格
+@RequestMapping(value="/get/id?")：可匹配“/get/id1”或“/get/ida”，但不匹配“/get/id”或“/get/idaa”;
+@RequestMapping(value="/get/id*")：可匹配“/get/idabc”或“/get/id”，但不匹配“/get/idabc/abc”;
+@RequestMapping(value="/get/id/*")：可匹配“/get/id/abc”，但不匹配“/get/idabc”;
+@RequestMapping(value="/get/id/**/{id}")：可匹配“/get/id/abc/abc/123”或“/get/id/123”，也就是Ant风格和URI模板变量风格可混用。
+(4)含正则表达式的一类值
+@RequestMapping(value="/get/{idPre:\\d+}-{idNum:\\d+}")：可以匹配“/get/123-1”，但不能匹配“/get/abc-1”，这样可以设计更加严格的规则。
+可以通过@PathVariable 注解提取路径中的变量(idPre,idNum)
+(5)或关系
+@RequestMapping(value={"/get","/fetch"} )即 /get或/fetch都会映射到该方法上。
+
+method：指定请求的method类型， GET、POST、PUT、DELETE等；
+@RequestMapping(value="/get/{bookid}",method={RequestMethod.GET,RequestMethod.POST})
+
+params：指定request中必须包含某些参数值是，才让该方法处理。
+@RequestMapping(params="action=del")，请求参数包含“action=del”,如：http://localhost:8080/book?action=del
+
+复制代码
+复制代码
+@Controller
+@RequestMapping("/owners/{ownerId}")
+public class RelativePathUriTemplateController {
+
+  @RequestMapping(value = "/pets/{petId}", method = RequestMethod.GET, params="myParam=myValue")
+  public void findPet(@PathVariable String ownerId, @PathVariable String petId, Model model) {
+    // implementation omitted
+  }
+}
+复制代码
+复制代码
+ 仅处理请求中包含了名为“myParam”，值为“myValue”的请求。
+
+headers：指定request中必须包含某些指定的header值，才能让该方法处理请求。
+@RequestMapping(value="/header/id", headers = "Accept=application/json")：表示请求的URL必须为“/header/id 且请求头中必须有“Accept =application/json”参数即可匹配。
+
+复制代码
+复制代码
+@Controller
+@RequestMapping("/owners/{ownerId}")
+public class RelativePathUriTemplateController {
+
+@RequestMapping(value = "/pets", method = RequestMethod.GET, headers="Referer=http://www.ifeng.com/")
+  public void findPet(@PathVariable String ownerId, @PathVariable String petId, Model model) {
+    // implementation omitted
+  }
+}
+复制代码
+复制代码
+ 仅处理request的header中包含了指定“Refer”请求头和对应值为“http://www.ifeng.com/”的请求。
+
+consumes：指定处理请求的提交内容类型（Content-Type），例如application/json, text/html。
+
+@Controller
+@RequestMapping(value = "/pets", method = RequestMethod.POST, consumes="application/json")
+public void addPet(@RequestBody Pet pet, Model model) {
+    // implementation omitted
+}
+ 方法仅处理request Content-Type为“application/json”类型的请求。
+produces: 指定返回的内容类型，仅当request请求头中的(Accept)类型中包含该指定类型才返回。
+
+@Controller
+@RequestMapping(value = "/pets/{petId}", method = RequestMethod.GET, produces="application/json")
+@ResponseBody
+public Pet getPet(@PathVariable String petId, Model model) {
+    // implementation omitted
+}
+ 方法仅处理request请求中Accept头中包含了"application/json"的请求，同时暗示了返回的内容类型为application/json;
+
+2、@RequestParam绑定单个请求参数值
+@RequestParam用于将请求参数区数据映射到功能处理方法的参数上。
+
+public String requestparam1(@RequestParam String username)
+ 请求中包含username参数（如/requestparam1?username=zhang），则自动传入。
+
+@RequestParam有以下三个参数：
+value：参数名字，即入参的请求参数名字，如username表示请求的参数区中的名字为username的参数的值将传入；
+required：是否必须，默认是true，表示请求中一定要有相应的参数，否则将抛出异常；
+defaultValue：默认值，表示如果请求中没有同名参数时的默认值，设置该参数时，自动将required设为false。
+
+public String requestparam4(@RequestParam(value="username",required=false) String username)
+表示请求中可以没有名字为username的参数，如果没有默认为null，此处需要注意如下几点：
+原子类型：必须有值，否则抛出异常，如果允许空值请使用包装类代替。
+Boolean包装类型：默认Boolean.FALSE，其他引用类型默认为null。
+
+如果请求中有多个同名的应该如何接收呢？如给用户授权时，可能授予多个权限，首先看下如下代码：
+
+public String requestparam7(@RequestParam(value="role") String roleList)
+如果请求参数类似于url?role=admin&rule=user，则实际roleList参数入参的数据为“admin,user”，即多个数据之间使用“，”分割；我们应该使用如下方式来接收多个请求参数：
+
+public String requestparam7(@RequestParam(value="role") String[] roleList)
+或者
+
+public String requestparam8(@RequestParam(value="list") List<String> list)
+3、@PathVariable绑定URI模板变量值
+@PathVariable用于将请求URL中的模板变量映射到功能处理方法的参数上。
+
+@RequestMapping(value="/users/{userId}/topics/{topicId}")
+public String test(
+       @PathVariable(value="userId") int userId,
+       @PathVariable(value="topicId") int topicId)
+ 如请求的URL为“控制器URL/users/123/topics/456”，则自动将URL中模板变量{userId}和{topicId}绑定到通过@PathVariable注解的同名参数上，即入参后userId=123、topicId=456。
+
+4、@ModelAttribute
+
+ModelAttribute可以应用在方法参数上或方法上，他的作用主要是当注解在方法参数上时会将注解的参数对象添加到Model中；当注解在请求处理方法Action上时会将该方法变成一个非请求处理的方法，但其它Action被调用时会首先调用该方法。
+
+4.1 @ModelAttribute注释一个方法
+
+被@ModelAttribute注释的方法表示这个方法的目的是增加一个或多个模型(model)属性。这个方法和被@RequestMapping注释的方法一样也支持@RequestParam参数，但是它不能直接被请求映射。实际上，控制器中的@ModelAttribute方法是在同一控制器中的@RequestMapping方法被调用之前调用的。
+
+被@ModelAttribute注释的方法用于填充model属性，例如，为下拉菜单填充内容，或检索一个command对象（如，Account），用它来表示一个HTML表单中的数据。
+一个控制器可以有任意数量的@ModelAttribute方法。所有这些方法都在@RequestMapping方法被调用之前调用。
+有两种类型的@ModelAttribute方法。一种是：只加入一个属性，用方法的返回类型隐含表示。另一种是：方法接受一个Model类型的参数，这个model可以加入任意多个model属性。
+
+(1)@ModelAttribute注释void返回值的方法
+
+复制代码
+复制代码
+@Controller
+@RequestMapping(value="/test")
+public class TestController {
+
+    /**
+     * 1.@ModelAttribute注释void返回值的方法
+      * @param abc
+     * @param model
+     */
+    @ModelAttribute
+    public void populateModel(@RequestParam String abc, Model model) {
+        model.addAttribute("attributeName", abc);
+    }
+
+    @RequestMapping(value = "/helloWorld")
+    public String helloWorld() {
+       return "test/helloWorld";
+    }
+}
+复制代码
+复制代码
+这个例子，在获得请求/helloWorld 后，populateModel方法在helloWorld方法之前先被调用，它把请求参数（/helloWorld?abc=text）加入到一个名为 attributeName的model属性中，在它执行后helloWorld被调用，返回视图名helloWorld和model已由 @ModelAttribute方法生产好了。
+这个例子中model属性名称和model属性对象由model.addAttribute()实现，不过前提是要在方法中加入一个Model类型的参数。
+
+(2)@ModelAttribute注释返回具体类的方法
+
+复制代码
+复制代码
+/**
+ * 2.@ModelAttribute注释返回具体类的方法
+ * @param id
+ * @return
+ */
+@ModelAttribute
+public User getUserInfo(String id){
+    if(id!=null && !id.equals("")){
+        return userService.getUserInfo(id);
+    }
+    return null;
+}
+
+这种情况，model属性的名称没有指定，它由返回类型隐含表示，如这个方法返回User类型，那么这个model属性的名称是user。
+这个例子中model属性名称有返回对象类型隐含表示，model属性对象就是方法的返回值。它无须要特定的参数。
+(3)@ModelAttribute(value="")注释返回具体类的方法
+
+@Controller
+@RequestMapping(value="/test")
+public class TestController {
+
+    /**
+     * 3.@ModelAttribute(value="")注释返回具体类的方法
+      * @param abc
+     * @return
+     */
+    @ModelAttribute("str")
+    public String getParam(@RequestParam String param) {
+        return param;
+    }
+
+    @RequestMapping(value = "/helloWorld")
+    public String helloWorld() {
+       return "test/helloWorld";
+    }
+}
+这个例子中使用@ModelAttribute注释的value属性，来指定model属性的名称。model属性对象就是方法的返回值。它无须要特定的参数。
+
+package demo.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import demo.model.User;
+import demo.service.IUserService;
+
+@Controller
+@RequestMapping(value="/test")
+public class TestController {
+
+    @Autowired
+    private IUserService userService;
+
+    /**
+     * 1.@ModelAttribute注释void返回值的方法
+      * @param abc
+     * @param model
+     */
+    @ModelAttribute
+    public void populateModel(@RequestParam String abc, Model model) {
+        model.addAttribute("attributeName", abc);
+    }
+
+    /**
+     * 2.@ModelAttribute注释返回具体类的方法
+      * @param id
+     * @return
+     */
+    @ModelAttribute
+    public User getUserInfo(String id){
+        if(id!=null && !id.equals("")){
+            return userService.getUserInfo(id);
+        }
+        return null;
+    }
+
+    /**
+     * 3.@ModelAttribute(value="")注释返回具体类的方法
+      * @param abc
+     * @return
+     */
+    @ModelAttribute("str")
+    public String getParam(@RequestParam String param) {
+        return param;
+    }
+
+    @RequestMapping(value = "/helloWorld")
+    public String helloWorld() {
+       return "test/helloWorld";
+    }
+}
+
+Jsp前台取值：
+
+复制代码
+复制代码
+<%@ page language="java" import="java.util.*" pageEncoding="utf-8"%>
+<%
+String path = request.getContextPath();
+String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";
+%>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>helloWorld</title>
+  </head>
+
+  <body>
+       1.The attributeValue is:  ${attributeName}
+       <br/><br/>
+
+       2.用户信息：<br/>
+       姓名：${user.user_name}<br/>
+       年龄：${user.user_age}<br/>
+       邮箱：${user.user_email}<br/><br/>
+
+      3.The param is:  ${str}
+  </body>
+</html>
+复制代码
+复制代码
+页面效果图：
+
+
+
+URL格式：http://localhost/SSMDemo/test/helloWorld?abc=text&id=1&param=aaa 注：当url或者post中不包含参数abc和参数param时，会报错。
+
+(4)@ModelAttribute和@RequestMapping同时注释一个方法
+
+复制代码
+复制代码
+@Controller
+@RequestMapping(value="/test")
+public class TestController {
+
+    @RequestMapping(value = "/helloWorld")
+    @ModelAttribute("attributeName")
+    public String helloWorld() {
+       return "hi";
+    }
+}
+
+这时这个方法的返回值并不是表示一个视图名称，而是model属性的值， 视图名称由RequestToViewNameTranslator根据请求"/helloWorld"转换为helloWorld。Model属性名称 由@ModelAttribute(value=””)指定，相当于在request中封装了key=attributeName，value=hi。
+
+Jsp页面：
+
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>helloWorld</title>
+  </head>
+
+  <body>
+      The attributeValue is:  ${attributeName}
+  </body>
+</html>
+复制代码
+复制代码
+ 4.2 @ModelAttribute注释一个方法的参数
+
+@ModelAttribute注释方法的一个参数表示应从模型model中取得。若在model中未找到，那么这个参数将先被实例化后加入到 model中。若在model中找到，则请求参数名称和model属性字段若相匹配就会自动填充。这个机制对于表单提交数据绑定到对象属性上很有效。
+
+当@ModelAttribute注解用于方法参数时，它有 了双重功能，即“存/取”。首先，它从模型中取出数据并赋予对应的参数，如果模型中尚不存在，则实例化一个，并存放于模型中；其次，一旦模型中已存在此数 据对象，接下来一个很重要的步骤便是将请求参数绑定到此对象上（请求参数名映射对象属性名），这是Spring MVC提供的一个非常便利的机制--数据绑定。
+
+@RequestMapping(value = "/login.htm", method = RequestMethod.GET)
+public String doLogin(@ModelAttribute("baseMember") BaseMember member) {
+    member.setLoginName("loginName");
+    return "home";
+}
+上述代码中，如果模型中尚不存在键名为“baseMember”的数据，则首先会调用BaseMember类的默认构造器创建一个对象，如果不存在 默认构造器会抛出异常。因此，给实体类提供一个默认构造器是一个好的编程习惯。当请求路径的请求参数或提交的表单与BaseMember的属性名匹配时， 将自动将其值绑定到baseMember对象中，非常的便利！这可能是我们使用@ModelAttribute最主要的原因之一。比如：请求路径为http://localhost:8080/spring-web/login.htm?loginName=myLoginName，baseMember对象中的loginName属性的值将被设置为myLoginName。
+
+4.3 @ModelAttribute注解的使用场景
+当@ModelAttribute注解用于方 法时，与其处于同一个处理类的所有请求方法执行前都会执行一次此方法，这可能并不是我们想要的，因此，我们使用更多的是将其应用在请求方法的参数上，而它 的一部分功能与@RequestParam注解是一致的，只不过@RequestParam用于绑定单个参数值，而@ModelAttribute注解可 以绑定所有名称匹配的，此外它自动将绑定后的数据添加到模型中，无形中也给我们提供了便利，这也可能是它命名为ModelAttribute的原因。
+
+5、SessionAttributes
+
+在默认情况下，ModelMap中的属性作用域是request级别，也就是说，当本次请求结束后，ModelMap 中的属性将销毁。如果希望在多个请求中共享ModelMap中的属性，必须将其属性转存到session 中，这样 ModelMap 的属性才可以被跨请求访问。
+Spring 允许我们有选择地指定 ModelMap 中的哪些属性需要转存到 session 中，以便下一个请求属对应的 ModelMap 的属性列表中还能访问到这些属性。这一功能是通过类定义处标注 @SessionAttributes 注解来实现的。
+
+复制代码
+复制代码
+package demo.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttributes;
+
+import demo.model.User;
+
+@Controller
+@RequestMapping(value="/demo1")
+//(1)将ModelMap中属性名为currUser的属性放到Session属性列表中，以便这个属性可以跨请求访问
+@SessionAttributes("currUser")
+public class Demo1Controller {
+
+    @RequestMapping(value="/getUser")
+    public String getUser(ModelMap model){
+        User user=new User();
+        user.setUser_name("zhangsan");
+        user.setUser_age(25);
+        user.setUser_email("zhangsan@sina.com");
+        //(2)向ModelMap中添加一个属性
+         model.addAttribute("currUser",user);
+        return "/demo/user";
+    }
+
+    @RequestMapping(value="/getUser1")
+    public String getUser1(ModelMap model){
+        User user=(User)model.get("currUser");
+        System.out.println(user.getUser_name());
+        System.out.println(user.getUser_age());
+        System.out.println(user.getUser_email());
+        return "demo/user1";
+    }
+}
+我们在(2)处添加了一个 ModelMap 属性，其属性名为 currUser，而(1)处通过 @SessionAttributes 注解将 ModelMap 中名为 currUser 的属性放置到 Session 中，所以我们不但可以在 getUser() 请求所对应的 JSP 视图页面中通过 request.getAttribute(“currUser”) 和 session.getAttribute(“currUser”) 获取 user 对象，还可以在下一个请求(getUser1())所对应的 JSP 视图页面中通过 session.getAttribute(“currUser”) 或 session.getAttribute(“currUser”)访问到这个属性。
+
+ 这里我们仅将一个 ModelMap 的属性放入 Session 中，其实 @SessionAttributes 允许指定多个属性。你可以通过字符串数组的方式指定多个属性，如 @SessionAttributes({“attr1”,"attr2”})。此外，@SessionAttributes 还可以通过属性类型指定要 session 化的 ModelMap 属性，如 @SessionAttributes(types = User.class)，当然也可以指定多个类，如 @SessionAttributes(types = {User.class,Dept.class})，还可以联合使用属性名和属性类型指定：@SessionAttributes(types = {User.class,Dept.class},value={“attr1”,"attr2”})。
+
+user.jsp页面：
+
+
+<%@ page language="java" import="java.util.*" pageEncoding="utf-8"%>
+<%@ page import="demo.model.User" %>
+<%
+String path = request.getContextPath();
+String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.getServerPort()+path+"/";
+%>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <base href="<%=basePath%>">
+    <title>My JSP 'index.jsp' starting page</title>
+  </head>
+  <body><br>
+      <%User user=(User)session.getAttribute("currUser");%>
+      用户名：<%=user.getUser_name() %><br/>
+      年龄：<%=user.getUser_age() %><br/>
+      邮箱：<%=user.getUser_email() %><br/><br/>
+      <a href="<%=path %>/demo1/getUser1">跳转</a>
+  </body>
+</html>
+ 通过@ModelAttribute绑定
+
+@SessionAttributes 是用来在 controller 内部共享 model 属性的。我 们可以在需要访问 Session 属性的 controller 上加上 @SessionAttributes，然后在 action 需要的 User 参数上加上 @ModelAttribute，并保证两者的属性名称一致。SpringMVC 就会自动将 @SessionAttributes 定义的属性注入到 ModelMap 对象，在 setup action 的参数列表时，去 ModelMap 中取到这样的对象，再添加到参数列表。只要我们不去调用 SessionStatus 的 setComplete() 方法，这个对象就会一直保留在 Session 中，从而实现 Session 信息的共享。
+
+@Controller
+@SessionAttributes("currentUser")
+public class GreetingController{
+    @RequestMapping
+    public void hello(@ModelAttribute("currentUser") User user){
+    //user.sayHello()
+    }
+}
+
+@SessionAttributes清除
+@SessionAttributes需要清除时，使用 SessionStatus.setComplete();来清除。注意，它只清除@SessionAttributes的session，不会清除 HttpSession的数据。故如用户身份验证对象的session一般不用它来实现，还是用session.setAttribute等传统的方式实 现。
+
+6、@Responsebody与@RequestBody
+
+@Responsebody表示该方法的返回结果直接写入HTTP response body中。一般在异步获取数据时使用，在使用@RequestMapping后，返回值通常解析为跳转路径，加上@Responsebody后返回结果 不会被解析为跳转路径，而是直接写入HTTP response body中。比如异步获取json数据，加上@Responsebody后，会直接返回json数据。
+@RequestBody将HTTP请求正文插入方法中,使用适合的HttpMessageConverter将请求体写入某个对象。
+
+$("#btn2").click(function(){
+    var url='<%=request.getContextPath()%>/User/addUserInfo';
+    var data={"user_name":$("#userName").val(),"user_sex":$("#userSex").val(),"user_age":$("#userAge").val(),
+    "user_email":$("#userEmail").val(),"user_telephone":$("#userTelephone").val(),"user_education":$("#userEducation").val(),
+    "user_title":$("#userTitle").val()};
+
+     $.ajax({
+       type:'POST',
+       contentType : 'application/json',
+      url:url,
+      dataType:"json",
+      data:JSON.stringify(data),
+      async:false,
+      success:function(data){
+          alert("新增成功！");
+      },
+      error: function(XMLHttpRequest, textStatus, errorThrown){
+           alert(XMLHttpRequest.status);
+           alert(XMLHttpRequest.readyState);
+           alert(textStatus);
+      }
+    })
+})
+
+@RequestMapping(value="/addUserInfo",method=RequestMethod.POST)
+@ResponseBody
+ //将请求中的data写入UserModel对象中
+public String addUserInfo(@RequestBody UserModel user){
+    System.out.println("user_name--------"+user.getUser_name());
+    System.out.println("user_sex--------"+user.getUser_sex());
+    System.out.println("user_age--------"+user.getUser_age());
+    System.out.println("user_email--------"+user.getUser_email());
+    System.out.println("user_title--------"+user.getUser_title());
+    System.out.println("user_education--------"+user.getUser_education());
+    System.out.println("user_telephone--------"+user.getUser_telephone());
+    //不会被解析为跳转路径，而是直接写入HTTP response body中
+    return "{}";
+}
+复制代码
+复制代码
+@RequestBody 将HTTP请求正文转换为适合的HttpMessageConverter对象。
+@ResponseBody 将内容或对象作为 HTTP 响应正文返回，并调用适合HttpMessageConverter的Adapter转换对象，写入输出流。
+
+@RequestBody
+作用：
+ i) 该注解用于读取Request请求的body部分数据，使用系统默认配置的HttpMessageConverter进行解析，然后把相应的数据绑定到要返回的对象上；
+ ii) 再把HttpMessageConverter返回的对象数据绑定到 controller中方法的参数上。
+使用时机：
+A) GET、POST方式提时， 根据request header Content-Type的值来判断:
+application/x-www-form-urlencoded， 可选（即非必须，因为这种情况的数据@RequestParam, @ModelAttribute也可以处理，当然@RequestBody也能处理）；
+multipart/form-data, 不能处理（即使用@RequestBody不能处理这种格式的数据）；
+其他格式， 必须（其他格式包括application/json, application/xml等。这些格式的数据，必须使用@RequestBody来处理）；
+
+B) PUT方式提交时， 根据request header Content-Type的值来判断:
+application/x-www-form-urlencoded， 必须；
+multipart/form-data, 不能处理；
+其他格式， 必须；
+说明：request的body部分的数据编码格式由header部分的Content-Type指定；
+
+@ResponseBody
+作用：
+ 该注解用于将Controller的方法返回的对象，通过适当的HttpMessageConverter转换为指定格式后，写入到Response对象的body数据区。
+使用时机：
+ 返回的数据不是html标签的页面，而是其他某种格式的数据时（如json、xml等）使用；
